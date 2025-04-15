@@ -47,4 +47,4 @@ This is the description arguments for the aforementioned command.
 
 ## Acknowledgement
 
-The code presented here largely reuse the code and default parameters used by the authors of the original PRC watermarking scheme,  provided [here](https://github.com/XuandongZhao/PRC-Watermark)
+The code presented here largely reuse the code and default parameters used by the authors of the original PRC watermarking scheme,  provided [here](https://github.com/XuandongZhao/PRC-Watermark) under MIT License (in LICENSE file)
