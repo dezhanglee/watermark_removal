@@ -251,9 +251,7 @@ for eps in tqdm(eps_arr):
         f.write(f'{eps} {tpr}\n')
     if all([not rr[1] for rr in combined_results]): # if all are removed, no point trying increased distortion 
         break
-    if all([rr[1] for rr in combined_results]): # if all are removed, no point trying increased distortion 
-        skip = 5
-   
+
 
 
 print(f'Decoded results saved to '+f'res_latent/latent_space_remove_{exp_id}.txt')
