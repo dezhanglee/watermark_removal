@@ -18,26 +18,24 @@ import cv2
 from skimage import data, img_as_float
 from skimage.metrics import structural_similarity as ssim
 from skimage.metrics import mean_squared_error
-from src.optim_utils import set_random_seed, transform_img, get_dataset
 
 from torchvision import transforms as tfms
 
+
 parser = argparse.ArgumentParser('Args')
-parser.add_argument('--test_num', type=int, default=3001)
+parser.add_argument('--test_num', type=int, default=10)
 parser.add_argument('--method', type=str, default='prc') # gs, tr, prc
-# stable-diffusion-v1-5/stable-diffusion-v1-5'
-parser.add_argument('--model_id', type=str, default='stabilityai/stable-diffusion-2-1-base') #stabilityai/stable-diffusion-2-1-base
+parser.add_argument('--model_id', type=str, default='stabilityai/stable-diffusion-2-1-base')
 parser.add_argument('--dataset_id', type=str, default='Gustavosta/Stable-Diffusion-Prompts') # coco 
 parser.add_argument('--inf_steps', type=int, default=50)
 parser.add_argument('--nowm', type=int, default=0)
 parser.add_argument('--fpr', type=float, default=0.1)
 parser.add_argument('--prc_t', type=int, default=3)
 parser.add_argument('--attack', type=str, default='stealthy') #white_noise, min_distortion, stealthy
-parser.add_argument('--eps', type=float, default=10.0)
-parser.add_argument('--device', type=str, default="cuda:0")
-parser.add_argument('--message_length', type=int, default=2000)
-parser.add_argument('--inversion', type=str, default='null') # 'exact', 'null', 'prompt'
-
+parser.add_argument('--eps', type=float, default=5)
+parser.add_argument('--device', type=str, default="cuda:1")
+parser.add_argument('--message_length', type=int, default=1500)
+parser.add_argument('--inversion', type=str, default='exact') # 'exact', 'null', 'prompt'
 
 args = parser.parse_args()
 print(args)
@@ -54,16 +52,14 @@ fpr = args.fpr
 prc_t = args.prc_t
 eps = args.eps
 attack = args.attack
-exp_id = f'{method}_num_{test_num}_steps_{args.inf_steps}_fpr_{fpr}_nowm_{nowm}_eps_{eps}_attack_{attack}_mess_len_{args.message_length}_inversion_{args.inversion}_model_{args.model_id.replace("/", "_")}'
-
-torch.manual_seed(12345)
+exp_id = f'{method}_num_{test_num}_steps_{args.inf_steps}_fpr_{fpr}_nowm_{nowm}_eps_{eps}_attack_{attack}_mess_len_{args.message_length}_inversion_{args.inversion}'
 
 ## Inversion
 @torch.no_grad()
 def invert(
     start_latents,
     prompt,
-    guidance_scale=3.0,
+    guidance_scale=3.5,
     num_inference_steps=80,
     num_images_per_prompt=1,
     do_classifier_free_guidance=True,
@@ -203,7 +199,6 @@ def add_stealthy_attack(input_latent, eps):
         curr_eps_sq += (2*input_latent_flat[curr_idx])**2
         idx += 1
 #         print(input_latent_flat[i])
-    print(f"No (Proportion) of Bits Flipped: {idx} ({idx/len(input_latent_flat)})")
     return input_latent_flat.reshape(input_latent.shape)
 
 def add_clustering_attack(input_latent, eps):
@@ -247,62 +242,6 @@ def add_min_distortion_attack(input_latent, eps):
 #         print(input_latent_flat[i])
         idx += 1
     return input_latent_flat.reshape(input_latent.shape)
-
-if method == 'prc':
-    if not os.path.exists(f'keys/{exp_id}.pkl'):  # Generate watermark key for the first time and save it to a file
-        (encoding_key_ori, decoding_key_ori) = KeyGen(n, message_length=args.message_length, 
-                                                      false_positive_rate=fpr, t=prc_t)  # Sample PRC keys
-        with open(f'keys/{exp_id}.pkl', 'wb') as f:  # Save the keys to a file
-            pickle.dump((encoding_key_ori, decoding_key_ori), f)
-        with open(f'keys/{exp_id}.pkl', 'rb') as f:  # Load the keys from a file
-            encoding_key, decoding_key = pickle.load(f)
-        assert encoding_key[0].all() == encoding_key_ori[0].all()
-    else:  # Or we can just load the keys from a file
-        with open(f'keys/{exp_id}.pkl', 'rb') as f:
-            encoding_key, decoding_key = pickle.load(f)
-        print(f'Loaded PRC keys from file keys/{exp_id}.pkl')
-elif method == 'gs':
-    gs_watermark = Gaussian_Shading_chacha(ch_factor=1, hw_factor=8, fpr=fpr, user_number=10000)
-    if not os.path.exists(f'keys/{exp_id}.pkl'):
-        watermark_m_ori, key_ori, nonce_ori, watermark_ori = gs_watermark.create_watermark_and_return_w()
-        with open(f'keys/{exp_id}.pkl', 'wb') as f:
-            pickle.dump((watermark_m_ori, key_ori, nonce_ori, watermark_ori), f)
-        with open(f'keys/{exp_id}.pkl', 'rb') as f:
-            watermark_m, key, nonce, watermark = pickle.load(f)
-        assert watermark_m.all() == watermark_m_ori.all()
-    else:  # Or we can just load the keys from a file
-        with open(f'keys/{exp_id}.pkl', 'rb') as f:
-            watermark_m, key, nonce, watermark = pickle.load(f)
-            print(f'Loaded GS keys from file keys/{exp_id}.pkl')
-elif method == 'tr':
-    # need to generate watermark key for the first time then save it to a file, we just load previous key here
-    tr_key = '7c3fa99795fe2a0311b3d8c0b283c5509ac849e7f5ec7b3768ca60be8c080fd9_0_10_rand'
-    # tr_key = '4145007d1cbd5c3e28876dd866bc278e0023b41eb7af2c6f9b5c4a326cb71f51_0_9_rand'
-    print('Loaded TR keys from file')
-else:
-    raise NotImplementedError
-
-if dataset_id == 'coco':
-    save_folder = f'./results/{exp_id}_coco/original_images'
-else:
-    save_folder = f'./results/{exp_id}/original_images'
-if not os.path.exists(save_folder):
-    os.makedirs(save_folder)
-print(f'Saving original images to {save_folder}')
-
-random.seed(42)
-if dataset_id == 'coco':
-    with open('coco/captions_val2017.json') as f:
-        all_prompts = [ann['caption'] for ann in json.load(f)['annotations']]
-else:
-    all_prompts = [sample['Prompt'] for sample in load_dataset(dataset_id)['test']]
-import time
-np.random.seed(int(time.time()))
-prompts = [str(i) for i in np.random.choice(all_prompts, size=test_num, replace=True)]
-
-pipe = stable_diffusion_pipe(solver_order=1, model_id=model_id, cache_dir=hf_cache_dir, device=device).to(device)
-pipe.set_progress_bar_config(disable=True)
-
 def seed_everything(seed, workers=False):
     os.environ["PL_GLOBAL_SEED"] = str(seed)
     random.seed(seed)
@@ -311,28 +250,65 @@ def seed_everything(seed, workers=False):
     torch.cuda.manual_seed_all(seed)
     os.environ["PL_SEED_WORKERS"] = f"{int(workers)}"
     return seed
+
+seed_everything(0)
+pics_id = f'{method}_num_{test_num}_steps_{args.inf_steps}_fpr_{fpr}_nowm_{nowm}_mess_len_{args.message_length}_model_{model_id}'
+pics_id = pics_id.replace("/", "_")
+
+if method == 'prc':
+    if not os.path.exists(f'keys/{pics_id}.pkl'):  # Generate watermark key for the first time and save it to a file
+        (encoding_key_ori, decoding_key_ori) = KeyGen(n, message_length=args.message_length, 
+                                                      false_positive_rate=fpr, t=prc_t)  # Sample PRC keys
+        with open(f'keys/{pics_id}.pkl', 'wb') as f:  # Save the keys to a file
+            pickle.dump((encoding_key_ori, decoding_key_ori), f)
+        with open(f'keys/{pics_id}.pkl', 'rb') as f:  # Load the keys from a file
+            encoding_key, decoding_key = pickle.load(f)
+        assert encoding_key[0].all() == encoding_key_ori[0].all()
+    else:  # Or we can just load the keys from a file
+        with open(f'keys/{pics_id}.pkl', 'rb') as f:
+            encoding_key, decoding_key = pickle.load(f)
+        print(f'Loaded PRC keys from file keys/{pics_id}.pkl')
+else:
+    raise NotImplementedError
+
+if dataset_id == 'coco':
+    img_folder = f'./results/base_img/{pics_id}_coco'
+else:
+    img_folder = f'./results/base_img/{pics_id}'
+file = open(f'{img_folder}/generated_imgs.pkl','rb')
+imgs_dict = pickle.load( file)
+print(f'Loaded watermark images from {img_folder}/generated_imgs.pkl')
+file = open(f'{img_folder}/initial_lantents.pkl','rb')
+latent_dict = pickle.load( file)
+print(f'Loaded watermark latent from {img_folder}/initial_lantents.pkl')
+seed_everything(0)
+if dataset_id == 'coco':
+    with open('coco/captions_val2017.json') as f:
+        all_prompts = [ann['caption'] for ann in json.load(f)['annotations']]
+else:
+    all_prompts = [sample['Prompt'] for sample in load_dataset(dataset_id)['test']]
+
+prompts = random.sample(all_prompts, test_num)
+
+seed_everything(0)
+pipe = stable_diffusion_pipe(solver_order=1, model_id=model_id, cache_dir=hf_cache_dir).to(device)
+pipe.set_progress_bar_config(disable=True)
+
+img_folder = f'./results/base_img/{dataset_id}/'
+if dataset_id == 'coco':
+    save_folder = f'./results/{exp_id}_coco/original_images'
+else:
+    save_folder = f'./results/{exp_id}/original_images'
+if not os.path.exists(save_folder):
+    os.makedirs(save_folder)
+print(f'Saving original images to {save_folder}')
 cur_inv_order = 0
 # for i in tqdm(range(2)):
-all_mse = []
-all_ssim = []
-all_success = []
+all_mse, all_ssim, remove_count = [], [], 0
 for i in tqdm(range(test_num)):
-    seed_everything(i)
+    seed_everything(0)
     current_prompt = prompts[i]
-    if nowm:
-        init_latents_np = np.random.randn(1, 4, 64, 64)
-        init_latents = torch.from_numpy(init_latents_np).to(torch.float64).to(device)
-    else:
-        if method == 'prc':
-            prc_codeword = Encode(encoding_key)
-            init_latents = prc_gaussians.sample(prc_codeword).reshape(1, 4, 64, 64).to(device)
-        elif method == 'gs':
-            init_latents = gs_watermark.truncSampling(watermark_m)
-        elif method == 'tr':
-            shape = (1, 4, 64, 64)
-            init_latents, _, _ = tr_get_noise(shape, from_file=tr_key, keys_path='keys/')
-        else:
-            raise NotImplementedError
+    
     
 #     orig_image, _, _ = generate(prompt=current_prompt,
 #                                 init_latents=init_latents,
@@ -340,37 +316,37 @@ for i in tqdm(range(test_num)):
 #                                 solver_order=1,
 #                                 pipe=pipe
 #                                 )
-    orig_image=sample(prompt=current_prompt, start_latents=init_latents, num_inference_steps=args.inf_steps,
-                       )[0]
-    orig_image.save(f'{save_folder}/{i}.png')
+    seed_everything(0)
+    orig_image=imgs_dict[i]
+    init_latents = latent_dict[i].to(device)
     img_1 = img_as_float(orig_image)
     img_1 = np.squeeze(img_1)
-    seed_everything(i)
+    
 #     reversed_latents = exact_inversion(orig_image,
 #                                        prompt="",
 #                                        test_num_inference_steps=args.inf_steps,
 #                                        inv_order=cur_inv_order,
 #                                        pipe=pipe
 #                                        )
-    start_step = args.inf_steps
+    start_step = 30
     
 #     convert_tensor = tfms.ToTensor()
-
+    seed_everything(0)
     with torch.no_grad(): 
         latent = pipe.vae.encode(tfms.functional.to_tensor(orig_image).unsqueeze(0).to(device)*2-1)
         lat = 0.18215 * latent.latent_dist.sample()
     if args.inversion == 'exact':
         reversed_latents = init_latents
     elif args.inversion == 'null':
-        inverted_latents = invert(lat, "", num_inference_steps=args.inf_steps*2)
-        reversed_latents =inverted_latents[(start_step + 1)][None]
-        # reversed_latents = exact_inversion(orig_image,
-        #                                prompt="",
-        #                                test_num_inference_steps=args.inf_steps,
-        #                                inv_order=cur_inv_order,
-        #                                pipe=pipe
-        #                                )
-
+        inverted_latents = invert(lat, "", num_inference_steps=50)
+        inverted_latents.shape
+        reversed_latents =inverted_latents[-(start_step + 1)][None]
+#         reversed_latents = exact_inversion(orig_image,
+#                                        prompt="",
+#                                        test_num_inference_steps=args.inf_steps,
+#                                        inv_order=cur_inv_order,
+#                                        pipe=pipe
+#                                        )
     elif args.inversion == 'prompt':
         inverted_latents = invert(lat, current_prompt, num_inference_steps=50)
         reversed_latents = inverted_latents[-(start_step + 1)][None]
@@ -381,6 +357,7 @@ for i in tqdm(range(test_num)):
 #                                        pipe=pipe
 #                                        )
     print(torch.sum((reversed_latents - init_latents)**2))
+    seed_everything(0)
     if attack == 'white_noise':
         reversed_latents_attack = add_white_noise(reversed_latents, eps)
     elif attack == 'stealthy':
@@ -390,6 +367,7 @@ for i in tqdm(range(test_num)):
     elif attack == 'clustering':
         reversed_latents_attack = add_clustering_attack(reversed_latents, eps)
     print(torch.sum((reversed_latents - reversed_latents_attack)**2)**0.5)
+    seed_everything(0)
     if args.inversion == 'null':
 #         orig_image, _, _ = generate(prompt="",
 #                             init_latents=reversed_latents_attack,
@@ -398,7 +376,7 @@ for i in tqdm(range(test_num)):
 #                             pipe=pipe
 #                             )
         orig_image=sample("", start_latents=reversed_latents_attack,
-                          start_step=start_step, num_inference_steps=args.inf_steps*2)[0]
+                          start_step=start_step, num_inference_steps=args.inf_steps)[0]
     else:
         
 #         orig_image, _, _ = generate(prompt=current_prompt,
@@ -419,38 +397,41 @@ for i in tqdm(range(test_num)):
     print(f'mse_{mse_const}_ssim_{ssim_const}')
     
     
-#         # test watermark 
-#     reversed_latents = exact_inversion(orig_image,
-#                                        prompt="",
-#                                        test_num_inference_steps=args.inf_steps,
-#                                        inv_order=cur_inv_order,
-#                                        pipe=pipe,
-#                                        device=device
-#                                        )
     
-
-#     if method == 'prc':
-#         reversed_prc = prc_gaussians.recover_posteriors(reversed_latents.to(torch.float64).flatten().cpu(), variances=float(1.5)).flatten().cpu()
-#         detection_result = Detect(decoding_key, reversed_prc)
-#         decoding_result = (Decode(decoding_key, reversed_prc) is not None)
-#         combined_result = detection_result and decoding_result
-# #         combined_results.append(combined_result)
-#         print(f'{i:03d}: Detection: {detection_result}; Decoding: {decoding_result}; Combined: {combined_result}')
-#     elif method == 'gs':
-#         gs_watermark = Gaussian_Shading_chacha(ch_factor=1, hw_factor=8, fpr=fpr, user_number=10000)
+        # test watermark 
+    seed_everything(0)
+    reversed_latents = exact_inversion(orig_image,
+                                       prompt="",
+                                       test_num_inference_steps=args.inf_steps,
+                                       inv_order=cur_inv_order,
+                                       pipe=pipe,
+                                       device=device
+                                       )
+    
+    seed_everything(0)
+    if method == 'prc':
+        reversed_prc = prc_gaussians.recover_posteriors(reversed_latents.to(torch.float64).flatten().cpu(), variances=float(1.5)).flatten().cpu()
+        detection_result = Detect(decoding_key, reversed_prc)
+        decoding_result = (Decode(decoding_key, reversed_prc) is not None)
+        combined_result = detection_result and decoding_result
+#         combined_results.append(combined_result)
+        print(f'{i:03d}: Detection: {detection_result}; Decoding: {decoding_result}; Combined: {combined_result}')
+    elif method == 'gs':
+        gs_watermark = Gaussian_Shading_chacha(ch_factor=1, hw_factor=8, fpr=fpr, user_number=10000)
         
-#         gs_watermark.nonce=nonce
-#         gs_watermark.key=key
-#         gs_watermark.watermark=watermark
+        gs_watermark.nonce=nonce
+        gs_watermark.key=key
+        gs_watermark.watermark=watermark
         
-#         acc_metric = gs_watermark.eval_watermark(reversed_latents)
-# #         combined_results.append(combined_result)
-#         print(acc_metric)
-    # is_removed=not combined_result
-    # orig_image.save(f'{save_folder}/{i}_remove_{attack}_mse_{mse_const}_ssim_{ssim_const}_removed_{is_removed}.png')
-    orig_image.save(f'{save_folder}/{i}_remove_{attack}_mse_{mse_const}_ssim_{ssim_const}.png')
+        acc_metric = gs_watermark.eval_watermark(reversed_latents)
+#         combined_results.append(combined_result)
+        print(acc_metric)
+    is_removed=not combined_result
+    orig_image.save(f'{save_folder}/{i}_remove_{attack}_mse_{mse_const}_ssim_{ssim_const}_removed_{is_removed}.png')
+    # orig_image.save(f'{save_folder}/{i}_remove_{attack}_mse_{mse_const}_ssim_{ssim_const}.png')
     all_mse.append(mse_const)
     all_ssim.append(ssim_const)
+    remove_count += int(is_removed)
     # all_success.append(int(is_removed))
 
 
@@ -459,4 +440,14 @@ print(f'Done generating {method} images')
 import statistics
 print("avg mse ", statistics.mean(all_mse))
 print("avg ssim ", statistics.mean(all_ssim))
+print("removal rate", remove_count/test_num)
+import datetime
+current_timestamp = datetime.datetime.now().timestamp()
+a=statistics.mean(all_mse)
+b= statistics.mean(all_ssim)
+c=remove_count/test_num
+with open(f'metrics/{exp_id}_{current_timestamp}.txt', 'a') as file:
+    file.write(f"{exp_id}\n")
+    file.write(f"mse, ssim, asr, {a}  {b} {c}\n")
+print("statistics saved to: ", f'metrics/{exp_id}_{current_timestamp}.txt')
 # print("avg asr ", statistics.mean(all_success))
