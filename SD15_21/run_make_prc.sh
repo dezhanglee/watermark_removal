@@ -1,0 +1,19 @@
+#!/bin/bash
+# Run make_prc_imgs.py with given message_length and device
+python3 make_prc_imgs.py \
+  --test_num "$TEST_NUM" \
+  --method "$METHOD" \
+  --model_id "$MODEL_ID" \
+  --dataset_id "$DATASET_ID" \
+  --inf_steps "$INF_STEPS" \
+  --nowm "$NOWM" \
+  --fpr "$FPR" \
+  --prc_t "$PRC_T" \
+  --device "$DEVICE" \
+  --message_length "$MESSAGE_LENGTH" > "$LOG_FILE" 2>&1
+
+if [ $? -eq 0 ]; then
+  echo "✅ Completed: message_length=$MESSAGE_LENGTH on $DEVICE"
+else
+  echo "❌ Failed: message_length=$MESSAGE_LENGTH" | tee -a failed.log
+fi
