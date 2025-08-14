@@ -53,6 +53,8 @@ prc_t = args.prc_t
 eps = args.eps
 attack = args.attack
 exp_id = f'{method}_num_{test_num}_steps_{args.inf_steps}_fpr_{fpr}_nowm_{nowm}_eps_{eps}_attack_{attack}_mess_len_{args.message_length}_inversion_{args.inversion}'
+if args.boundary_hiding:
+    exp_id += "_boundary_hiding_1"
 
 ## Inversion
 @torch.no_grad()
