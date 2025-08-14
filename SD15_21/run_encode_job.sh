@@ -12,6 +12,7 @@ python3 encode_exact_invert_remove.py \
   --attack "$ATTACK" \
   --inversion "$INVERSION" \
   --device "$DEVICE" \
+  --boundary_hiding "$BOUNDARY_HIDING" \
   --message_length "$MESSAGE_LENGTH" \
   > "logs/$EXP_ID.log" 2>&1
 

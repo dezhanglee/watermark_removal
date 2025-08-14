@@ -1,24 +1,33 @@
 #!/bin/bash
+
+# shell script is coded using LLM assitance (qwen)
+
 set -euo pipefail  # Exit on error, undefined vars, and pipeline failures
 
 # Create required directories
 mkdir -p metrics keys results logs
 
 # === Parameters ===
-MESSAGE_LENGTHS=(1600)
-DEVICES=("cuda:0")
-NUM_DEVICES=${#DEVICES[@]}
+MESSAGE_LENGTHS=( 1600 ) # no of bits of message
+DEVICES=("cuda:0" "cuda:1") # set accordingly to your system, will execute jobs in parallel. 
+
+BOUNDARY_HIDING=1  # 1 or 0 for enabled or disabled
+# Attack Parameters
+ATTACKS=("white_noise" "stealthy") # attack to perform
+EPS_VALUES=(4 6 8 10 12) # Amount of distortion to latent space
+INVERSIONS=("null") #AC1: exact, #AC2: prompt, #AC3: null
 
 # Fixed defaults
-TEST_NUM=10
-INF_STEPS=50
+TEST_NUM=5
+INF_STEPS=50 # default setting from PRC paper 
 METHOD="prc"
 MODEL_ID="stabilityai/stable-diffusion-2-1-base"
 DATASET_ID="Gustavosta/Stable-Diffusion-Prompts"
-FPR=0.1
-NOWM=0
-PRC_T=3
-BOUNDARY_HIDING=1  # ✅ Corrected spelling
+FPR=0.1 # default setting from PRC paper
+NOWM=0 # default setting from PRC paper
+PRC_T=3 # default setting from PRC paper
+
+NUM_DEVICES=${#DEVICES[@]}
 
 # Export common variables for child scripts
 export TEST_NUM METHOD MODEL_ID DATASET_ID INF_STEPS FPR NOWM PRC_T BOUNDARY_HIDING
@@ -46,7 +55,7 @@ python3 make_prc_imgs.py \
   --boundary_hiding "$BOUNDARY_HIDING" \
   --message_length "$MESSAGE_LENGTH" > "$LOG_FILE" 2>&1
 
-if [ \$? -eq 0 ]; then
+if [ $? -eq 0 ]; then
   echo "✅ Completed: message_length=$MESSAGE_LENGTH on $DEVICE"
 else
   echo "❌ Failed: message_length=$MESSAGE_LENGTH on $DEVICE" | tee -a failed.log
@@ -84,17 +93,10 @@ echo "✅ Phase 1 completed: All image generation jobs finished."
 # === PHASE 2: Run encode_exact_invert_remove.py ===
 echo "🔹 Phase 2: Running encode_exact_invert_remove.py across attack/eps/inversion..."
 
-# Parameters
-ATTACKS=("white_noise" "stealthy")
-EPS_VALUES=(4 6 8 10 12)
-INVERSIONS=("prompt")
-
 # Temporary script for encode jobs
 ENC_JOB_SCRIPT="run_encode_job.sh"
 cat > "$ENC_JOB_SCRIPT" << 'EOF'
 #!/bin/bash
-# This script runs encode_exact_invert_remove.py
-
 python3 encode_exact_invert_remove.py \
   --test_num "$TEST_NUM" \
   --method "$METHOD" \
@@ -112,12 +114,14 @@ python3 encode_exact_invert_remove.py \
   --message_length "$MESSAGE_LENGTH" \
   > "logs/$EXP_ID.log" 2>&1
 
-if [ \$? -eq 0 ]; then
+if [ $? -eq 0 ]; then
   echo "✅ Completed: $EXP_ID"
 else
-  echo "❌ Failed: $EXP_ID" | tee -a failed.log
+  echo "❌ Failed: $EXP_ID"
 fi
 EOF
+chmod +x "$ENC_JOB_SCRIPT"
+
 
 chmod +x "$ENC_JOB_SCRIPT"
 

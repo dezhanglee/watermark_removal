@@ -32,8 +32,9 @@ parser.add_argument('--nowm', type=int, default=0)
 parser.add_argument('--fpr', type=float, default=0.1)
 parser.add_argument('--prc_t', type=int, default=3)
 parser.add_argument('--device', type=str, default="cuda:1")
-parser.add_argument('--message_length', type=int, default=1500)
+parser.add_argument('--message_length', type=int, default=1600)
 parser.add_argument('--boundary_hiding', type=int, default=0)
+parser.add_argument('--overwrite', type=int, default=0)
 args = parser.parse_args()
 print(args)
 
@@ -52,31 +53,15 @@ exp_id = exp_id.replace("/", "_")
 if args.boundary_hiding:
     exp_id += "_boundary_hiding_1"
 
-
-def generate_transform(n):
-    """
-    Generates an n x n Haar-random unitary matrix.
-
-    Args:
-        n (int): The dimension of the unitary matrix.
-
-    Returns:
-        numpy.ndarray: An n x n Haar-random unitary matrix.
-    """
-    # 1. Generate a Ginibre Ensemble Matrix
-    # Each element is complex, with real and imaginary parts from a standard normal distribution
-    M = (np.random.randn(n, n) + 1j * np.random.randn(n, n)) / np.sqrt(2)
-
-    # 2. Perform QR Decomposition
-    Q, R = np.linalg.qr(M)
-
-    # 3. Correct the Diagonal of R
-    # Create a diagonal matrix Lambda with the signs of the diagonal elements of R
-    Lambda = np.diag(np.diag(R) / np.abs(np.diag(R)))
-
-    # 4. Compute the Haar-Random Unitary Matrix
-    U = Q @ Lambda
-    return U
+def generate_transform(N):
+    """Generate a Haar-random orthogonal matrix using QR decomposition."""
+    Z = torch.randn(N, N)  # Real Gaussian matrix
+    Q, R = torch.linalg.qr(Z)
+    
+    # Correct the signs so that diag(R) is positive
+    Lambda = torch.diag(torch.sign(torch.diagonal(R)))
+    
+    return (Q @ Lambda).to(torch.float64)
 
 # Sample function (regular DDIM)
 @torch.no_grad()
@@ -192,7 +177,7 @@ if not os.path.exists(save_folder):
             continue
 print(f'Saving original images to {save_folder}')
 import os
-if os.path.exists(f'{save_folder}/generated_imgs.pkl') and os.path.exists(f'{save_folder}/initial_lantents.pkl'):
+if os.path.exists(f'{save_folder}/generated_imgs.pkl') and os.path.exists(f'{save_folder}/initial_lantents.pkl') and args.overwrite:
     print("already generated")
     import sys
     sys.exit()
@@ -212,7 +197,7 @@ pipe.set_progress_bar_config(disable=True)
 if args.boundary_hiding:
     d = 4*64*64
     trans = generate_transform(d)
-    trans = torch.from_numpy(trans).to(torch.float64).to(device)
+    trans = trans.to(device)
 
 cur_inv_order = 0
 img_dict = dict()
@@ -239,7 +224,7 @@ for i in tqdm(range(test_num)):
     if args.boundary_hiding:
         ori_shape = init_latents.shape
         flat_latents = torch.flatten(init_latents)
-        transformed_latents = torch.matmul(trans, flat_latents)
+        transformed_latents = torch.matmul(trans.T, flat_latents)
         init_latents = transformed_latents.reshape(ori_shape)
     seed_everything(0)
     orig_image=sample(prompt=current_prompt, start_latents=init_latents, num_inference_steps=args.inf_steps,

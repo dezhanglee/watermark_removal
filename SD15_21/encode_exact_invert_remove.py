@@ -20,7 +20,17 @@ from skimage.metrics import structural_similarity as ssim
 from skimage.metrics import mean_squared_error
 
 from torchvision import transforms as tfms
-
+from numpy.linalg import qr
+# def generate_transform(N):
+#     """Generate a Haar-random orthogonal matrix (real) using QR decomposition."""
+#     Z = torch.randn(N, N)  # Real Gaussian matrix
+#     Q, R = torch.linalg.qr(Z)
+    
+#     # Correct the signs so that diag(R) is positive
+#     Lambda = torch.diag(torch.sign(torch.diagonal(R)))
+    
+#     return (Q @ Lambda).to(torch.float64)
+# tt = generate_transform(4*64*64)
 
 parser = argparse.ArgumentParser('Args')
 parser.add_argument('--test_num', type=int, default=10)
@@ -35,7 +45,7 @@ parser.add_argument('--attack', type=str, default='stealthy') #white_noise, min_
 parser.add_argument('--eps', type=float, default=5)
 parser.add_argument('--device', type=str, default="cuda:1")
 parser.add_argument('--message_length', type=int, default=1600)
-parser.add_argument('--inversion', type=str, default='prompt') # 'exact', 'null', 'prompt'
+parser.add_argument('--inversion', type=str, default='null') # 'exact', 'null', 'prompt'
 parser.add_argument('--boundary_hiding', type=int, default=0)
 args = parser.parse_args()
 print(args)
@@ -287,8 +297,8 @@ print(f'Loaded watermark latent from {img_folder}/initial_lantents.pkl')
 if args.boundary_hiding:
     file = open(f'{img_folder}/trans.pkl','rb')
     trans = pickle.load( file).to(device)
-    trans = torch.transpose(trans)
-    print(f'Loaded secret transformation from {img_folder}/initial_lantents.pkl')
+    trans = trans
+    print(f'Loaded secret transformation from {img_folder}/trans.pkl')
 seed_everything(0)
 if dataset_id == 'coco':
     with open('coco/captions_val2017.json') as f:
@@ -336,7 +346,7 @@ for i in tqdm(range(test_num)):
 #                                        inv_order=cur_inv_order,
 #                                        pipe=pipe
 #                                        )
-    start_step = 30
+    start_step = 0
     
 #     convert_tensor = tfms.ToTensor()
     seed_everything(0)
@@ -424,12 +434,20 @@ for i in tqdm(range(test_num)):
                                        test_num_inference_steps=args.inf_steps,
                                        inv_order=cur_inv_order,
                                        pipe=pipe,
-                                       device=device
-                                       )
+                                       device=device)
+    # ori_shape = reversed_latents.shape
+    # tt = tt.to(device)
+    # lat_flatten = torch.flatten(torch.Tensor(reversed_latents)).to(device)
+    # inverted_lat = torch.matmul(tt, lat_flatten.to(torch.float64))
+    # reversed_latents = inverted_lat.reshape(ori_shape)                               
+    # ori_shape = reversed_latents.shape
+    # lat_flatten = torch.flatten(torch.Tensor(reversed_latents)).to(device)
+    # inverted_lat = torch.matmul(tt.T, lat_flatten.to(torch.float64))
+    # reversed_latents = inverted_lat.reshape(ori_shape)       
     if args.boundary_hiding:
         ori_shape = reversed_latents.shape
         lat_flatten = torch.flatten(reversed_latents)
-        inverted_lat = torch.matmul(trans, lat_flatten)
+        inverted_lat = torch.matmul(trans, lat_flatten.to(torch.float64))
         reversed_latents = inverted_lat.reshape(ori_shape)
     seed_everything(0)
     if method == 'prc':

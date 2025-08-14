@@ -1,5 +1,8 @@
 #!/bin/bash
-# Run make_prc_imgs.py with given message_length and device
+# This script runs make_prc_imgs.py with passed environment variables
+
+# Debug (uncomment if needed): echo "DEBUG: DEVICE=$DEVICE, MESSAGE_LENGTH=$MESSAGE_LENGTH, BOUNDARY_HIDING=$BOUNDARY_HIDING" >&2
+
 python3 make_prc_imgs.py \
   --test_num "$TEST_NUM" \
   --method "$METHOD" \
@@ -10,10 +13,11 @@ python3 make_prc_imgs.py \
   --fpr "$FPR" \
   --prc_t "$PRC_T" \
   --device "$DEVICE" \
+  --boundary_hiding "$BOUNDARY_HIDING" \
   --message_length "$MESSAGE_LENGTH" > "$LOG_FILE" 2>&1
 
 if [ $? -eq 0 ]; then
   echo "✅ Completed: message_length=$MESSAGE_LENGTH on $DEVICE"
 else
-  echo "❌ Failed: message_length=$MESSAGE_LENGTH" | tee -a failed.log
+  echo "❌ Failed: message_length=$MESSAGE_LENGTH on $DEVICE" | tee -a failed.log
 fi
