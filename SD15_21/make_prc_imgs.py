@@ -33,7 +33,7 @@ parser.add_argument('--fpr', type=float, default=0.1)
 parser.add_argument('--prc_t', type=int, default=3)
 parser.add_argument('--device', type=str, default="cuda:1")
 parser.add_argument('--message_length', type=int, default=1500)
-
+parser.add_argument('--boundary_hiding', type=int, default=0)
 args = parser.parse_args()
 print(args)
 
@@ -49,6 +49,34 @@ fpr = args.fpr
 prc_t = args.prc_t
 exp_id = f'{method}_num_{test_num}_steps_{args.inf_steps}_fpr_{fpr}_nowm_{nowm}_mess_len_{args.message_length}_model_{model_id}'
 exp_id = exp_id.replace("/", "_")
+if args.boundary_hiding:
+    exp_id += "_boundary_hiding_1"
+
+
+def generate_transform(n):
+    """
+    Generates an n x n Haar-random unitary matrix.
+
+    Args:
+        n (int): The dimension of the unitary matrix.
+
+    Returns:
+        numpy.ndarray: An n x n Haar-random unitary matrix.
+    """
+    # 1. Generate a Ginibre Ensemble Matrix
+    # Each element is complex, with real and imaginary parts from a standard normal distribution
+    M = (np.random.randn(n, n) + 1j * np.random.randn(n, n)) / np.sqrt(2)
+
+    # 2. Perform QR Decomposition
+    Q, R = np.linalg.qr(M)
+
+    # 3. Correct the Diagonal of R
+    # Create a diagonal matrix Lambda with the signs of the diagonal elements of R
+    Lambda = np.diag(np.diag(R) / np.abs(np.diag(R)))
+
+    # 4. Compute the Haar-Random Unitary Matrix
+    U = Q @ Lambda
+    return U
 
 # Sample function (regular DDIM)
 @torch.no_grad()
@@ -180,6 +208,11 @@ seed_everything(0)
 pipe = stable_diffusion_pipe(solver_order=1, model_id=model_id, cache_dir=hf_cache_dir).to(device)
 pipe.set_progress_bar_config(disable=True)
 
+# generate our secret transformation 
+if args.boundary_hiding:
+    d = 4*64*64
+    trans = generate_transform(d)
+    trans = torch.from_numpy(trans).to(torch.float64).to(device)
 
 cur_inv_order = 0
 img_dict = dict()
@@ -203,7 +236,11 @@ for i in tqdm(range(test_num)):
             init_latents, _, _ = tr_get_noise(shape, from_file=tr_key, keys_path='keys/')
         else:
             raise NotImplementedError
-
+    if args.boundary_hiding:
+        ori_shape = init_latents.shape
+        flat_latents = torch.flatten(init_latents)
+        transformed_latents = torch.matmul(trans, flat_latents)
+        init_latents = transformed_latents.reshape(ori_shape)
     seed_everything(0)
     orig_image=sample(prompt=current_prompt, start_latents=init_latents, num_inference_steps=args.inf_steps,
                        )[0]
@@ -215,3 +252,4 @@ def save_object(obj, filename):
 
 save_object(img_dict, f'{save_folder}/generated_imgs.pkl')
 save_object(latent_dict, f'{save_folder}/initial_lantents.pkl')
+save_object(trans, f'{save_folder}/trans.pkl')

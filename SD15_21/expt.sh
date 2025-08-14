@@ -4,7 +4,7 @@
 mkdir -p metrics keys results logs
 
 # === Parameters ===
-MESSAGE_LENGTHS=(1000 1100 1200 1300 1400 1500)
+MESSAGE_LENGTHS=(  1600 )
 DEVICES=("cuda:0" "cuda:1" "cuda:2" "cuda:3")
 NUM_DEVICES=${#DEVICES[@]}
 
@@ -82,7 +82,7 @@ echo "🔹 Phase 2: Running encode_exact_invert_remove.py across attack/eps/inve
 # Parameters for attack/inversion
 ATTACKS=("white_noise" "stealthy")
 EPS_VALUES=(4 6 8 10 12)
-INVERSIONS=("null" "exact")
+INVERSIONS=("prompt")
 
 
 

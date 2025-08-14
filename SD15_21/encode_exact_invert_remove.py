@@ -34,9 +34,9 @@ parser.add_argument('--prc_t', type=int, default=3)
 parser.add_argument('--attack', type=str, default='stealthy') #white_noise, min_distortion, stealthy
 parser.add_argument('--eps', type=float, default=5)
 parser.add_argument('--device', type=str, default="cuda:1")
-parser.add_argument('--message_length', type=int, default=1500)
-parser.add_argument('--inversion', type=str, default='exact') # 'exact', 'null', 'prompt'
-
+parser.add_argument('--message_length', type=int, default=1600)
+parser.add_argument('--inversion', type=str, default='prompt') # 'exact', 'null', 'prompt'
+parser.add_argument('--boundary_hiding', type=int, default=0)
 args = parser.parse_args()
 print(args)
 
@@ -254,7 +254,8 @@ def seed_everything(seed, workers=False):
 seed_everything(0)
 pics_id = f'{method}_num_{test_num}_steps_{args.inf_steps}_fpr_{fpr}_nowm_{nowm}_mess_len_{args.message_length}_model_{model_id}'
 pics_id = pics_id.replace("/", "_")
-
+if args.boundary_hiding:
+    pics_id += "_boundary_hiding_1"
 if method == 'prc':
     if not os.path.exists(f'keys/{pics_id}.pkl'):  # Generate watermark key for the first time and save it to a file
         (encoding_key_ori, decoding_key_ori) = KeyGen(n, message_length=args.message_length, 
@@ -281,6 +282,11 @@ print(f'Loaded watermark images from {img_folder}/generated_imgs.pkl')
 file = open(f'{img_folder}/initial_lantents.pkl','rb')
 latent_dict = pickle.load( file)
 print(f'Loaded watermark latent from {img_folder}/initial_lantents.pkl')
+if args.boundary_hiding:
+    file = open(f'{img_folder}/trans.pkl','rb')
+    trans = pickle.load( file).to(device)
+    trans = torch.transpose(trans)
+    print(f'Loaded secret transformation from {img_folder}/initial_lantents.pkl')
 seed_everything(0)
 if dataset_id == 'coco':
     with open('coco/captions_val2017.json') as f:
@@ -348,7 +354,7 @@ for i in tqdm(range(test_num)):
 #                                        pipe=pipe
 #                                        )
     elif args.inversion == 'prompt':
-        inverted_latents = invert(lat, current_prompt, num_inference_steps=50)
+        inverted_latents = invert(lat, current_prompt, num_inference_steps=100)
         reversed_latents = inverted_latents[-(start_step + 1)][None]
 #         reversed_latents = exact_inversion(orig_image,
 #                                        prompt=current_prompt,
@@ -377,6 +383,17 @@ for i in tqdm(range(test_num)):
 #                             )
         orig_image=sample("", start_latents=reversed_latents_attack,
                           start_step=start_step, num_inference_steps=args.inf_steps)[0]
+    elif args.inversion == "prompt":
+        
+#         orig_image, _, _ = generate(prompt=current_prompt,
+#                                 init_latents=reversed_latents_attack,
+#                                 num_inference_steps=args.inf_steps,
+#                                 solver_order=1,
+#                                 pipe=pipe
+#                                 )
+        # reversed_latents_attack = reversed_latents
+        orig_image=sample(prompt=current_prompt, start_latents=reversed_latents_attack, start_step=start_step,num_inference_steps=args.inf_steps*2,
+                           )[0]
     else:
         
 #         orig_image, _, _ = generate(prompt=current_prompt,
@@ -407,7 +424,11 @@ for i in tqdm(range(test_num)):
                                        pipe=pipe,
                                        device=device
                                        )
-    
+    if args.boundary_hiding:
+        ori_shape = reversed_latents.shape
+        lat_flatten = torch.flatten(reversed_latents)
+        inverted_lat = torch.matmul(trans, lat_flatten)
+        reversed_latents = inverted_lat.reshape(ori_shape)
     seed_everything(0)
     if method == 'prc':
         reversed_prc = prc_gaussians.recover_posteriors(reversed_latents.to(torch.float64).flatten().cpu(), variances=float(1.5)).flatten().cpu()
