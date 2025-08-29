@@ -1,3 +1,6 @@
 hf_models/
 results/
 metrics/
+logs/
+keys/
+*.pkl
