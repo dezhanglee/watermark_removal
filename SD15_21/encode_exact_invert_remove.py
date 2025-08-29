@@ -370,6 +370,7 @@ for i in tqdm(range(test_num)):
 #                                        pipe=pipe
 #                                        )
     elif args.inversion == 'prompt':
+        start_step = 30
         inverted_latents = invert(lat, current_prompt, num_inference_steps=args.inf_steps*2)
         reversed_latents = inverted_latents[-(start_step + 1)][None]
 #         reversed_latents = exact_inversion(orig_image,
