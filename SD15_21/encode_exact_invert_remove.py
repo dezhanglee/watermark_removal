@@ -65,6 +65,8 @@ attack = args.attack
 exp_id = f'{method}_num_{test_num}_steps_{args.inf_steps}_fpr_{fpr}_nowm_{nowm}_eps_{eps}_attack_{attack}_mess_len_{args.message_length}_inversion_{args.inversion}'
 if args.boundary_hiding:
     exp_id += "_boundary_hiding_1"
+else:
+    exp_id += "_boundary_hiding_0"
 
 ## Inversion
 @torch.no_grad()
@@ -191,8 +193,8 @@ def add_white_noise(input_latent, eps):
     wn_normalized = wn / (torch.sum(wn**2)**0.5) * (eps)
     dev = input_latent.get_device()
     out = input_latent + wn_normalized.to(dev)
-    mean, std = torch.mean(out), torch.std(out)
-    out = (out-mean)/std
+    # mean, std = torch.mean(out), torch.std(out)
+    # out = (out-mean)/std
     return out
 
 def add_stealthy_attack(input_latent, eps):
@@ -268,6 +270,8 @@ pics_id = f'{method}_num_{test_num}_steps_{args.inf_steps}_fpr_{fpr}_nowm_{nowm}
 pics_id = pics_id.replace("/", "_")
 if args.boundary_hiding:
     pics_id += "_boundary_hiding_1"
+else:
+    pics_id += "_boundary_hiding_0"
 if method == 'prc':
     if not os.path.exists(f'keys/{pics_id}.pkl'):  # Generate watermark key for the first time and save it to a file
         (encoding_key_ori, decoding_key_ori) = KeyGen(n, message_length=args.message_length, 
@@ -346,8 +350,8 @@ for i in tqdm(range(test_num)):
 #                                        inv_order=cur_inv_order,
 #                                        pipe=pipe
 #                                        )
-    start_step = 0
-    
+    # start_step = 30
+    start_step = args.inf_steps
 #     convert_tensor = tfms.ToTensor()
     seed_everything(0)
     with torch.no_grad(): 
@@ -356,7 +360,7 @@ for i in tqdm(range(test_num)):
     if args.inversion == 'exact':
         reversed_latents = init_latents
     elif args.inversion == 'null':
-        inverted_latents = invert(lat, "", num_inference_steps=50)
+        inverted_latents = invert(lat, "", num_inference_steps=args.inf_steps*2)
         inverted_latents.shape
         reversed_latents =inverted_latents[-(start_step + 1)][None]
 #         reversed_latents = exact_inversion(orig_image,
@@ -366,7 +370,7 @@ for i in tqdm(range(test_num)):
 #                                        pipe=pipe
 #                                        )
     elif args.inversion == 'prompt':
-        inverted_latents = invert(lat, current_prompt, num_inference_steps=100)
+        inverted_latents = invert(lat, current_prompt, num_inference_steps=args.inf_steps*2)
         reversed_latents = inverted_latents[-(start_step + 1)][None]
 #         reversed_latents = exact_inversion(orig_image,
 #                                        prompt=current_prompt,
@@ -394,7 +398,7 @@ for i in tqdm(range(test_num)):
 #                             pipe=pipe
 #                             )
         orig_image=sample("", start_latents=reversed_latents_attack,
-                          start_step=start_step, num_inference_steps=args.inf_steps)[0]
+                          start_step=start_step, num_inference_steps=args.inf_steps*2)[0]
     elif args.inversion == "prompt":
         
 #         orig_image, _, _ = generate(prompt=current_prompt,
@@ -414,7 +418,7 @@ for i in tqdm(range(test_num)):
 #                                 solver_order=1,
 #                                 pipe=pipe
 #                                 )
-        orig_image=sample(prompt=current_prompt, start_latents=reversed_latents_attack, num_inference_steps=args.inf_steps,
+        orig_image=sample(prompt=current_prompt, start_latents=reversed_latents_attack, num_inference_steps=args.inf_steps*2,
                            )[0]
 #         orig_image=sample(current_prompt, start_latents=reversed_latents_attack,
 #                           start_step=start_step, num_inference_steps=args.inf_steps)[0]
@@ -490,5 +494,8 @@ c=remove_count/test_num
 with open(f'metrics/{exp_id}_{current_timestamp}.txt', 'a') as file:
     file.write(f"{exp_id}\n")
     file.write(f"mse, ssim, asr, {a}  {b} {c}\n")
+    inversion_ac_map = {"exact":"AC1", "prompt":"AC2", "null":"AC3"}
+    file.write(inversion_ac_map[args.inversion]+  "\n")
+    file.write(f"Boundary hiding: {args.boundary_hiding} \n")
 print("statistics saved to: ", f'metrics/{exp_id}_{current_timestamp}.txt')
 # print("avg asr ", statistics.mean(all_success))

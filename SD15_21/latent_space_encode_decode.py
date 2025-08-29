@@ -22,7 +22,7 @@ from src.baseline.gs_watermark import Gaussian_Shading_chacha
 import statistics
 
 parser = argparse.ArgumentParser('Args')
-parser.add_argument('--test_num', type=int, default=20)
+parser.add_argument('--test_num', type=int, default=10)
 parser.add_argument('--method', type=str, default='prc') # gs, tr, prc
 parser.add_argument('--model_id', type=str, default='stabilityai/stable-diffusion-2-1-base')
 parser.add_argument('--dataset_id', type=str, default='Gustavosta/Stable-Diffusion-Prompts') # coco 
@@ -34,7 +34,7 @@ parser.add_argument('--prc_t', type=int, default=3)
 parser.add_argument('--eps_low', type=float, default=0)
 parser.add_argument('--eps_high', type=float, default=1)
 parser.add_argument('--n_eps', type=int, default=20)
-parser.add_argument('--message_length', type=int, default=1500)
+parser.add_argument('--message_length', type=int, default=1600)
 
 args = parser.parse_args()
 print(args)

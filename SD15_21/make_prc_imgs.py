@@ -48,11 +48,27 @@ dataset_id = args.dataset_id
 nowm = args.nowm
 fpr = args.fpr
 prc_t = args.prc_t
-exp_id = f'{method}_num_{test_num}_steps_{args.inf_steps}_fpr_{fpr}_nowm_{nowm}_mess_len_{args.message_length}_model_{model_id}'
-exp_id = exp_id.replace("/", "_")
-if args.boundary_hiding:
-    exp_id += "_boundary_hiding_1"
 
+exp_id = f'{method}_num_{test_num}_steps_{args.inf_steps}_fpr_{fpr}_nowm_{nowm}_mess_len_{args.message_length}_model_{model_id}_boundary_hiding_{args.boundary_hiding}'
+exp_id = exp_id.replace("/", "_")
+if dataset_id == 'coco':
+    save_folder = f'./results/base_img/{exp_id}_coco/original_images'
+else:
+    save_folder = f'./results/base_img/{exp_id}/'
+if not os.path.exists(save_folder):
+    flds = [ "./results","./results/base_img/", save_folder]
+    for ff in flds:
+        try:
+            os.makedirs(ff)
+        except:
+            continue
+
+print(f'Saving original images to {save_folder}')
+import os
+if os.path.exists(f'{save_folder}/generated_imgs.pkl') and os.path.exists(f'{save_folder}/initial_lantents.pkl') and args.overwrite:
+    print("already generated")
+    import sys
+    sys.exit()
 def generate_transform(N):
     """Generate a Haar-random orthogonal matrix using QR decomposition."""
     Z = torch.randn(N, N)  # Real Gaussian matrix
@@ -164,23 +180,7 @@ elif method == 'tr':
 else:
     raise NotImplementedError
 
-if dataset_id == 'coco':
-    save_folder = f'./results/base_img/{exp_id}_coco/original_images'
-else:
-    save_folder = f'./results/base_img/{exp_id}/'
-if not os.path.exists(save_folder):
-    flds = [ "./results","./results/base_img/", save_folder]
-    for ff in flds:
-        try:
-            os.makedirs(ff)
-        except:
-            continue
-print(f'Saving original images to {save_folder}')
-import os
-if os.path.exists(f'{save_folder}/generated_imgs.pkl') and os.path.exists(f'{save_folder}/initial_lantents.pkl') and args.overwrite:
-    print("already generated")
-    import sys
-    sys.exit()
+
 if dataset_id == 'coco':
     with open('coco/captions_val2017.json') as f:
         all_prompts = [ann['caption'] for ann in json.load(f)['annotations']]
@@ -237,4 +237,5 @@ def save_object(obj, filename):
 
 save_object(img_dict, f'{save_folder}/generated_imgs.pkl')
 save_object(latent_dict, f'{save_folder}/initial_lantents.pkl')
-save_object(trans, f'{save_folder}/trans.pkl')
+if args.boundary_hiding:
+    save_object(trans, f'{save_folder}/trans.pkl')

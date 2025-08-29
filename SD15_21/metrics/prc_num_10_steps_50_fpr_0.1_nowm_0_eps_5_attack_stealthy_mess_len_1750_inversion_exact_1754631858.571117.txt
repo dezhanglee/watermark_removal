@@ -1,2 +1,0 @@
-prc_num_10_steps_50_fpr_0.1_nowm_0_eps_5_attack_stealthy_mess_len_1750_inversion_exact
-mse, ssim, asr, 0.0020153467241165253  0.8920536746437491 0.2
