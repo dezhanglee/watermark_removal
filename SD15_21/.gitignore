@@ -4,3 +4,4 @@ metrics/
 logs/
 keys/
 *.pkl
+base_img/
