@@ -65,7 +65,7 @@ if not os.path.exists(save_folder):
 
 print(f'Saving original images to {save_folder}')
 import os
-if os.path.exists(f'{save_folder}/generated_imgs.pkl') and os.path.exists(f'{save_folder}/initial_lantents.pkl') and args.overwrite:
+if os.path.exists(f'{save_folder}/generated_imgs.pkl') and os.path.exists(f'{save_folder}/initial_lantents.pkl') and not args.overwrite:
     print("already generated")
     import sys
     sys.exit()

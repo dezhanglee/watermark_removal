@@ -8,16 +8,16 @@ mkdir -p metrics keys results logs
 
 # === Parameters ===
 MESSAGE_LENGTHS=(1600)                              # bits of message
-DEVICES=("cuda:0" "cuda:1" "cuda:2" "cuda:3")                         # adjust to your system
+DEVICES=("cuda:0" "cuda:1" "cuda:2" )                         # adjust to your system
 BOUNDARY_HIDING=0                                   # 1 enabled, 0 disabled
 
 # Attack parameters
-ATTACKS=("white_noise" "stealthy")
+ATTACKS=("stealthy")
 EPS_VALUES=(4 6 8 10 12)
 INVERSIONS=("null" "exact" "prompt")                                 # AC1: exact, AC2: prompt, AC3: null
 
 # Fixed defaults
-TEST_NUM=200
+TEST_NUM=100
 INF_STEPS=50
 METHOD="prc"
 MODEL_ID="stabilityai/stable-diffusion-2-1-base"
