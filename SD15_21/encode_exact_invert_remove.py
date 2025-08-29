@@ -350,8 +350,8 @@ for i in tqdm(range(test_num)):
 #                                        inv_order=cur_inv_order,
 #                                        pipe=pipe
 #                                        )
-    # start_step = 30
-    start_step = args.inf_steps
+    start_step = 10
+    # start_step = args.inf_steps
 #     convert_tensor = tfms.ToTensor()
     seed_everything(0)
     with torch.no_grad(): 
