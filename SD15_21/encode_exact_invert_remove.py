@@ -41,10 +41,10 @@ parser.add_argument('--inf_steps', type=int, default=50)
 parser.add_argument('--nowm', type=int, default=0)
 parser.add_argument('--fpr', type=float, default=0.1)
 parser.add_argument('--prc_t', type=int, default=3)
-parser.add_argument('--attack', type=str, default='stealthy') #white_noise, min_distortion, stealthy
+parser.add_argument('--attack', type=str, default='white_noise') #white_noise, min_distortion, stealthy
 parser.add_argument('--eps', type=float, default=5)
 parser.add_argument('--device', type=str, default="cuda:1")
-parser.add_argument('--message_length', type=int, default=1600)
+parser.add_argument('--message_length', type=int, default=1500)
 parser.add_argument('--inversion', type=str, default='null') # 'exact', 'null', 'prompt'
 parser.add_argument('--boundary_hiding', type=int, default=0)
 args = parser.parse_args()
@@ -266,12 +266,8 @@ def seed_everything(seed, workers=False):
     return seed
 
 seed_everything(0)
-pics_id = f'{method}_num_{test_num}_steps_{args.inf_steps}_fpr_{fpr}_nowm_{nowm}_mess_len_{args.message_length}_model_{model_id}'
+pics_id=f'{method}_num_{test_num}_steps_{args.inf_steps}_fpr_{fpr}_nowm_{nowm}_mess_len_{args.message_length}_model_{model_id}_boundary_hiding_{args.boundary_hiding}'
 pics_id = pics_id.replace("/", "_")
-if args.boundary_hiding:
-    pics_id += "_boundary_hiding_1"
-else:
-    pics_id += "_boundary_hiding_0"
 if method == 'prc':
     if not os.path.exists(f'keys/{pics_id}.pkl'):  # Generate watermark key for the first time and save it to a file
         (encoding_key_ori, decoding_key_ori) = KeyGen(n, message_length=args.message_length, 
@@ -287,7 +283,12 @@ if method == 'prc':
         print(f'Loaded PRC keys from file keys/{pics_id}.pkl')
 else:
     raise NotImplementedError
-
+pics_id = f'{method}_num_{test_num}_steps_{args.inf_steps}_fpr_{fpr}_nowm_{nowm}_mess_len_{args.message_length}_model_{model_id}'
+pics_id = pics_id.replace("/", "_")
+if args.boundary_hiding:
+    pics_id += "_boundary_hiding_1"
+else:
+    pics_id += "_boundary_hiding_0"
 if dataset_id == 'coco':
     img_folder = f'./results/base_img/{pics_id}_coco'
 else:

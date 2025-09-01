@@ -5,3 +5,4 @@ logs/
 keys/
 *.pkl
 base_img/
+.ipynb_checkpoints/

@@ -8,11 +8,11 @@ mkdir -p metrics keys results logs
 
 # === Parameters ===
 MESSAGE_LENGTHS=(1600)                              # bits of message
-DEVICES=("cuda:0" "cuda:1" "cuda:2" "cuda:3")                         # adjust to your system
+DEVICES=("cuda:0"  "cuda:3")                         # adjust to your system
 BOUNDARY_HIDING=0                                   # 1 enabled, 0 disabled
 
 # Attack parameters
-ATTACKS=("stealthy" "white_noise")
+ATTACKS=("white_noise")
 EPS_VALUES=(4 6 8 10 12)
 INVERSIONS=("null" "exact" "prompt")                                 # AC1: exact, AC2: prompt, AC3: null
 
