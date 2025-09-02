@@ -460,7 +460,7 @@ import datetime
 current_timestamp = datetime.datetime.now().timestamp()
 a=statistics.mean(all_mse)
 b= statistics.mean(all_ssim)
-c=remove_count/test_num
+c=statistics.mean(all_success)
 with open(f'metrics/{exp_id}_{current_timestamp}.txt', 'a') as file:
     file.write(f"{exp_id}\n")
     file.write(f"mse, ssim, asr, {a}  {b} {c}\n")
