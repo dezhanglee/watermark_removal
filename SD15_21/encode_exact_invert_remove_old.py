@@ -37,6 +37,7 @@ parser.add_argument('--eps', type=float, default=10.0)
 parser.add_argument('--device', type=str, default="cuda:0")
 parser.add_argument('--message_length', type=int, default=1600)
 parser.add_argument('--inversion', type=str, default='null') # 'exact', 'null', 'prompt'
+parser.add_argument('--boundary_hiding', type=int, default=0) 
 
 
 args = parser.parse_args()

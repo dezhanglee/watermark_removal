@@ -32,13 +32,14 @@ NUM_DEVICES=${#DEVICES[@]}
 export TEST_NUM METHOD MODEL_ID DATASET_ID INF_STEPS FPR NOWM PRC_T BOUNDARY_HIDING
 
 
+
 # === PHASE 2: Encode / Invert / Remove ===
-echo "🔹  Running encode_exact_invert_remove.py..."
+echo "🔹 Phase 2: Running encode_exact_invert_remove.py..."
 
 ENC_JOB_SCRIPT="run_encode_job.sh"
 cat > "$ENC_JOB_SCRIPT" << EOF
 #!/bin/bash
-python3 encode_exact_invert_remove.py \
+python3 encode_exact_invert_remove_old.py \
   --test_num "\$TEST_NUM" \
   --method "\$METHOD" \
   --model_id "\$MODEL_ID" \
@@ -93,6 +94,6 @@ echo "⏳ Waiting for all encode jobs..."
 wait
 
 # === Done ===
-rm -f "$JOB_SCRIPT" "$ENC_JOB_SCRIPT"
+rm -f  "$ENC_JOB_SCRIPT"
 echo "🎉 All experiments completed successfully!"
 echo "📄 Logs saved in ./logs/"
